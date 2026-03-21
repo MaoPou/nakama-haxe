@@ -1,0 +1,14 @@
+{
+  "name": "nakama-haxe",
+  "url": "https://github.com/MaoPou/nakama-haxe",
+  "license": "Apache-2.0",
+  "tags": ["nakama", "game", "backend", "cpp", "bindings"],
+  "description": "Haxe extern bindings for Nakama C++ SDK",
+  "version": "1.0.0",
+  "releasenote": "Initial release",
+  "contributors": ["MaoPou"],
+  "dependencies": {
+    "hxcpp": ""
+  },
+  "classPath": "src"
+}
