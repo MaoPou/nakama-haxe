@@ -12,10 +12,10 @@ struct ClientHolder {
     NClientPtr client;
 };
 
-// 回调上下文
+// 回调上下文（使用桥接回调类型）
 struct CallbackContext {
-    SessionCallback onSuccess;
-    ErrorCallback onError;
+    BridgeSessionCallback onSuccess;
+    BridgeErrorCallback onError;
     void* userData;
 };
 
@@ -64,8 +64,8 @@ extern "C" void nakama_authenticate_device(
     const char* deviceId,
     const char* username,
     int create,
-    SessionCallback onSuccess,
-    ErrorCallback onError,
+    BridgeSessionCallback onSuccess,
+    BridgeErrorCallback onError,
     void* userData
 ) {
     ClientHolder* holder = static_cast<ClientHolder*>(client);

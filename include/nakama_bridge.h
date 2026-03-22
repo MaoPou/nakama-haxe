@@ -8,9 +8,9 @@ extern "C" {
 // 不透明类型，代表 NClientInterface*
 typedef void* NakamaClient;
 
-// 回调类型
-typedef void (*SessionCallback)(const char* token, const char* refresh_token, void* userData);
-typedef void (*ErrorCallback)(const char* message, int code, void* userData);
+// 回调类型（避免与 SDK 内类型冲突）
+typedef void (*BridgeSessionCallback)(const char* token, const char* refresh_token, void* userData);
+typedef void (*BridgeErrorCallback)(const char* message, int code, void* userData);
 
 // 客户端生命周期
 NakamaClient nakama_client_create(const char* serverKey, const char* host, int port, int ssl);
@@ -23,8 +23,8 @@ void nakama_authenticate_device(
     const char* deviceId,
     const char* username,
     int create,
-    SessionCallback onSuccess,
-    ErrorCallback onError,
+    BridgeSessionCallback onSuccess,
+    BridgeErrorCallback onError,
     void* userData
 );
 
