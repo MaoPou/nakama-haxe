@@ -7,24 +7,20 @@
 
 using namespace Nakama;
 
-// 客户端持有者
 struct ClientHolder {
     NClientPtr client;
 };
 
-// 回调上下文（使用桥接回调类型）
 struct CallbackContext {
     BridgeSessionCallback onSuccess;
     BridgeErrorCallback onError;
     void* userData;
 };
 
-// 辅助函数：将 C 字符串转为 std::string
 static inline std::string to_string(const char* s) {
     return s ? s : "";
 }
 
-// 创建客户端
 extern "C" NakamaClient nakama_client_create(const char* serverKey, const char* host, int port, int ssl) {
     try {
         NClientParameters params;
@@ -38,27 +34,20 @@ extern "C" NakamaClient nakama_client_create(const char* serverKey, const char* 
         
         ClientHolder* holder = new ClientHolder{client};
         return holder;
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         return nullptr;
     }
 }
 
-// 销毁客户端
 extern "C" void nakama_client_destroy(NakamaClient client) {
-    if (client) {
-        delete static_cast<ClientHolder*>(client);
-    }
+    if (client) delete static_cast<ClientHolder*>(client);
 }
 
-// 驱动网络请求
 extern "C" void nakama_client_tick(NakamaClient client) {
     ClientHolder* holder = static_cast<ClientHolder*>(client);
-    if (holder && holder->client) {
-        holder->client->tick();
-    }
+    if (holder && holder->client) holder->client->tick();
 }
 
-// 异步认证
 extern "C" void nakama_authenticate_device(
     NakamaClient client,
     const char* deviceId,
@@ -71,7 +60,6 @@ extern "C" void nakama_authenticate_device(
     ClientHolder* holder = static_cast<ClientHolder*>(client);
     if (!holder || !holder->client) return;
 
-    // 创建回调上下文（使用 shared_ptr 保证生命周期）
     auto ctx = std::make_shared<CallbackContext>(CallbackContext{onSuccess, onError, userData});
 
     holder->client->authenticateDevice(
