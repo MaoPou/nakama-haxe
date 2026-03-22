@@ -1,0 +1,205 @@
+name: Build and Publish Haxelib
+
+on:
+  push:
+    tags:
+      - 'v*'          # 当推送 tag 如 v1.0.0 时触发
+  workflow_dispatch:  # 手动触发
+
+jobs:
+  build-bridge:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows
+            arch: x64
+            lib_ext: .dll
+            lib_prefix: ""
+            sdk_lib: "nakama-sdk.lib"
+            bridge_lib: "nakama_bridge.dll"
+          - os: ubuntu-latest
+            target: linux
+            arch: x64
+            lib_ext: .so
+            lib_prefix: lib
+            sdk_lib: "libnakama-sdk.so"
+            bridge_lib: "libnakama_bridge.so"
+          - os: macos-latest
+            target: mac
+            arch: universal
+            lib_ext: .dylib
+            lib_prefix: lib
+            sdk_lib: "nakama-sdk.framework"
+            bridge_lib: "libnakama_bridge.dylib"
+          - os: macos-latest
+            target: ios
+            arch: arm64
+            lib_ext: .framework
+            lib_prefix: ""
+            sdk_lib: "nakama-sdk.framework"
+            bridge_lib: "nakama_bridge.framework"
+          - os: ubuntu-latest
+            target: android
+            arch: armeabi-v7a
+            ndk_arch: armv7a
+            lib_ext: .so
+            lib_prefix: lib
+            sdk_lib: "libnakama-sdk.so"
+            bridge_lib: "libnakama_bridge.so"
+          - os: ubuntu-latest
+            target: android
+            arch: arm64-v8a
+            ndk_arch: aarch64
+            lib_ext: .so
+            lib_prefix: lib
+            sdk_lib: "libnakama-sdk.so"
+            bridge_lib: "libnakama_bridge.so"
+          - os: ubuntu-latest
+            target: android
+            arch: x86
+            ndk_arch: i686
+            lib_ext: .so
+            lib_prefix: lib
+            sdk_lib: "libnakama-sdk.so"
+            bridge_lib: "libnakama_bridge.so"
+          - os: ubuntu-latest
+            target: android
+            arch: x86_64
+            ndk_arch: x86_64
+            lib_ext: .so
+            lib_prefix: lib
+            sdk_lib: "libnakama-sdk.so"
+            bridge_lib: "libnakama_bridge.so"
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC (Windows)
+        if: matrix.target == 'windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install dependencies (Linux)
+        if: matrix.target == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y g++ make
+
+      - name: Install Android NDK
+        if: matrix.target == 'android'
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+          add-to-path: false
+
+      - name: Set NDK environment (Android)
+        if: matrix.target == 'android'
+        run: |
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          echo "PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Build bridge library (Windows)
+        if: matrix.target == 'windows'
+        run: |
+          cl /EHsc /MD /I"include" /I"ndll/Windows" bridge/nakama_bridge.cpp /link /DLL /OUT:ndll/Windows/nakama_bridge.dll /LIBPATH:ndll/Windows nakama-sdk.lib
+
+      - name: Build bridge library (Linux)
+        if: matrix.target == 'linux'
+        run: |
+          g++ -shared -fPIC -o ndll/Linux/libnakama_bridge.so bridge/nakama_bridge.cpp -Iinclude -Lndll/Linux -lnakama-sdk
+
+      - name: Build bridge library (macOS)
+        if: matrix.target == 'mac'
+        run: |
+          clang++ -shared -fPIC -o ndll/Mac/libnakama_bridge.dylib bridge/nakama_bridge.cpp -Iinclude -Fndll/Mac -framework nakama-sdk
+
+      - name: Build bridge library (iOS)
+        if: matrix.target == 'ios'
+        run: |
+          # 创建 framework 结构
+          mkdir -p ndll/iOS/nakama_bridge.framework/Headers
+          # 编译静态库或动态库，这里简化：生成动态库后拷贝
+          clang++ -arch arm64 -isysroot $(xcrun --sdk iphoneos --show-sdk-path) -shared -o ndll/iOS/nakama_bridge.framework/nakama_bridge bridge/nakama_bridge.cpp -Iinclude -Fndll/iOS -framework nakama-sdk
+          # 复制头文件
+          cp include/nakama_bridge.h ndll/iOS/nakama_bridge.framework/Headers/
+
+      - name: Build bridge library (Android)
+        if: matrix.target == 'android'
+        run: |
+          ARCH=${{ matrix.ndk_arch }}
+          ABI=${{ matrix.arch }}
+          # 设置交叉编译工具链前缀
+          if [[ "$ARCH" == "armv7a" ]]; then
+            TOOLCHAIN=armv7a-linux-androideabi21-clang++
+            TARGET_ABI=armeabi-v7a
+          elif [[ "$ARCH" == "aarch64" ]]; then
+            TOOLCHAIN=aarch64-linux-android21-clang++
+            TARGET_ABI=arm64-v8a
+          elif [[ "$ARCH" == "i686" ]]; then
+            TOOLCHAIN=i686-linux-android21-clang++
+            TARGET_ABI=x86
+          elif [[ "$ARCH" == "x86_64" ]]; then
+            TOOLCHAIN=x86_64-linux-android21-clang++
+            TARGET_ABI=x86_64
+          fi
+          $TOOLCHAIN -shared -fPIC -o ndll/Android/$TARGET_ABI/libnakama_bridge.so bridge/nakama_bridge.cpp -Iinclude -Lndll/Android/$TARGET_ABI -lnakama-sdk
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bridge-${{ matrix.target }}-${{ matrix.arch }}
+          path: ndll/${{ matrix.target }}/${{ matrix.bridge_lib }}
+
+  package:
+    needs: build-bridge
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all bridge artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Copy bridge libraries into ndll
+        run: |
+          # 将下载的桥接库移动到正确的 ndll 子目录
+          cp -r artifacts/bridge-windows-x64/ndll/Windows/* ndll/Windows/
+          cp -r artifacts/bridge-linux-x64/ndll/Linux/* ndll/Linux/
+          cp -r artifacts/bridge-mac-universal/ndll/Mac/* ndll/Mac/
+          cp -r artifacts/bridge-ios-arm64/ndll/iOS/* ndll/iOS/
+          cp -r artifacts/bridge-android-armeabi-v7a/ndll/Android/armeabi-v7a/* ndll/Android/armeabi-v7a/
+          cp -r artifacts/bridge-android-arm64-v8a/ndll/Android/arm64-v8a/* ndll/Android/arm64-v8a/
+          cp -r artifacts/bridge-android-x86/ndll/Android/x86/* ndll/Android/x86/
+          cp -r artifacts/bridge-android-x86_64/ndll/Android/x86_64/* ndll/Android/x86_64/
+
+      - name: Setup Haxe
+        uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: 4.3.4
+
+      - name: Generate haxelib.json
+        run: |
+          # 从模板生成，替换版本号（从 tag 获取）
+          VERSION=${GITHUB_REF_NAME#v}
+          sed "s/__VERSION__/$VERSION/g" haxelib.json.template > haxelib.json
+
+      - name: Generate include.xml (optional)
+        run: |
+          # 如果 include.xml.template 存在，则复制并替换
+          if [ -f include.xml.template ]; then
+            sed "s/__VERSION__/$VERSION/g" include.xml.template > include.xml
+          fi
+
+      - name: Pack haxelib
+        run: |
+          haxelib pack .
+
+      - name: Publish to Haxelib
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}
+        run: |
+          haxelib submit nakama-sdk-${VERSION}.zip --password $HAXELIB_PASSWORD

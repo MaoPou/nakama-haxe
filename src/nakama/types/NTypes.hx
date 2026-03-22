@@ -1,83 +1,33 @@
 package nakama.types;
 
-import cpp.RawPointer;
 import cpp.ConstCharStar;
-import cpp.Int32;
-import cpp.UInt64;
-import cpp.Int64;
+import cpp.RawPointer;
 
-/**
- * UNIX time in milliseconds.
- */
-typedef NTimestamp = UInt64;
+// 时间戳类型
+typedef NTimestamp = Int;
 
-/**
- * Array of bytes (std::string in C++).
- */
-typedef NBytes = String;
-
-/**
- * String to string map.
- */
+// 字符串映射（C++ 中是 std::unordered_map<std::string, std::string>）
 @:unreflective
 @:include('nakama-cpp/NTypes.h')
-@:native('::std::map<::std::string, ::std::string>')
+@:native('::nakama::NStringMap')
 extern class NStringMap {
-    function size(): cpp.SizeT;
-    function empty(): Bool;
-    function clear(): Void;
-    function insert(key: ConstCharStar, value: ConstCharStar): Void;
-    function find(key: ConstCharStar): RawPointer<Dynamic>;
-    @:arrayAccess function get(key: ConstCharStar): ConstCharStar;
-    @:arrayAccess function set(key: ConstCharStar, value: ConstCharStar): Void;
+
 }
 
-/**
- * String to double map.
- */
-@:unreflective
-@:include('nakama-cpp/NTypes.h')
-@:native('::std::map<::std::string, double>')
-extern class NStringDoubleMap {
-    function size(): cpp.SizeT;
-    function empty(): Bool;
-    function clear(): Void;
-    function insert(key: ConstCharStar, value: Float): Void;
-    function find(key: ConstCharStar): RawPointer<Dynamic>;
-    @:arrayAccess function get(key: ConstCharStar): Float;
-    @:arrayAccess function set(key: ConstCharStar, value: Float): Void;
+// 字符串映射辅助函数
+class NStringMapHelper {
+    public static inline function toHaxeMap(map: RawPointer<NStringMap>): Map<String, String> {
+        var result = new Map<String, String>();
+        if (map == null) return result;
+        
+        untyped __cpp__('
+            for (const auto& kv : *{0}) {
+                ::String key(kv.first.c_str());
+                ::String value(kv.second.c_str());
+                {1}->set(key, value);
+            }
+        ', map, result);
+        
+        return result;
+    }
 }
-
-/**
- * The group role status.
- */
-@:unreflective
-@:include('nakama-cpp/NTypes.h')
-@:native('::nakama::NUserGroupState')
-extern enum NUserGroupState {
-    SUPERADMIN;
-    ADMIN;
-    MEMBER;
-    JOIN_REQUEST;
-}
-
-/**
- * The available channel types on the server.
- */
-@:unreflective
-@:include('nakama-cpp/NTypes.h')
-@:native('::nakama::NChannelType')
-extern enum NChannelType {
-    TYPE_UNSPECIFIED;
-    ROOM;
-    DIRECT_MESSAGE;
-    GROUP;
-}
-
-/**
- * Constant for default port.
- */
-@:unreflective
-@:include('nakama-cpp/NTypes.h')
-@:native('::nakama::DEFAULT_PORT')
-extern var DEFAULT_PORT: Int32;

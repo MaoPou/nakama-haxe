@@ -1,48 +1,43 @@
 package nakama.types;
 
-import cpp.ConstCharStar;
 import cpp.RawPointer;
-import nakama.types.NTimestamp;
 
-/**
- * A user in the server.
- */
 @:unreflective
 @:include('nakama-cpp/data/NUser.h')
 @:native('::nakama::NUser')
-extern class NUser {
-    var id: ConstCharStar;
-    var username: ConstCharStar;
-    var displayName: ConstCharStar;
-    var avatarUrl: ConstCharStar;
-    var lang: ConstCharStar;
-    var location: ConstCharStar;
-    var timeZone: ConstCharStar;
-    var metadata: ConstCharStar;
-    var facebookId: ConstCharStar;
-    var googleId: ConstCharStar;
-    var gameCenterId: ConstCharStar;
-    var appleId: ConstCharStar;
-    var steamId: ConstCharStar;
-    var online: Bool;
-    var edgeCount: Int32;
-    var createdAt: NTimestamp;
-    var updatedAt: NTimestamp;
+extern class NUser_ {
+    // 空声明
 }
 
-typedef NUserPtr = RawPointer<NUser>;
-
-/**
- * A collection of zero or more users.
- */
-@:unreflective
-@:include('nakama-cpp/data/NUsers.h')
-@:native('::nakama::NUsers')
-extern class NUsers {
-    var users: RawPointer<Dynamic>; // std::vector<NUser>
+class NUser {
+    var _ptr: RawPointer<NUser_>;
     
-    function size(): cpp.SizeT;
-    function get(index: cpp.SizeT): NUserPtr;
+    public function new(ptr: RawPointer<NUser_>) {
+        _ptr = ptr;
+    }
+    
+    public function getId(): String {
+        if (_ptr == null) return null;
+        return untyped __cpp__('::String({0}->id.c_str())', _ptr);
+    }
+    
+    public function getUsername(): String {
+        if (_ptr == null) return null;
+        return untyped __cpp__('::String({0}->username.c_str())', _ptr);
+    }
+    
+    public function getDisplayName(): String {
+        if (_ptr == null) return null;
+        return untyped __cpp__('::String({0}->displayName.c_str())', _ptr);
+    }
+    
+    public function getAvatarUrl(): String {
+        if (_ptr == null) return null;
+        return untyped __cpp__('::String({0}->avatarUrl.c_str())', _ptr);
+    }
+    
+    public function getLanguage(): String {
+        if (_ptr == null) return null;
+        return untyped __cpp__('::String({0}->lang.c_str())', _ptr);
+    }
 }
-
-typedef NUsersPtr = RawPointer<NUsers>;

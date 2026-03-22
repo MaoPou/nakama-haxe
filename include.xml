@@ -1,0 +1,18 @@
+<include>
+    <target id="windows">
+        <lib name="${haxelib:nakama-sdk}/ndll/Windows/nakama_bridge.lib" />
+        <lib name="nakama_bridge" dynamic="true" />
+    </target>
+    <target id="linux">
+        <lib name="nakama_bridge" dynamic="true" />
+    </target>
+    <target id="mac">
+        <lib name="${haxelib:nakama-sdk}/ndll/Mac/libnakama_bridge.dylib" dynamic="true" />
+    </target>
+    <target id="ios">
+        <lib name="${haxelib:nakama-sdk}/ndll/iOS/nakama_bridge.framework" framework="true" />
+    </target>
+    <target id="android">
+        <lib name="nakama_bridge" />
+    </target>
+</include>
