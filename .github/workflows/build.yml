@@ -74,11 +74,13 @@ jobs:
       - name: Build bridge library (Windows)
         if: matrix.target == 'Windows'
         run: |
+          mkdir -p ndll/Windows
           cl /EHsc /MD /I"include" /DNAKAMA_SHARED_LIBRARY_EXPORTS /std:c++17 bridge/nakama_bridge.cpp /link /DLL /OUT:ndll/Windows/nakama_bridge.dll /LIBPATH:ndll/Windows nakama-sdk.lib
 
       - name: Build bridge library (Linux)
         if: matrix.target == 'Linux'
         run: |
+          mkdir -p ndll/Linux
           g++ -shared -fPIC -std=c++17 -DNAKAMA_SHARED_LIBRARY_EXPORTS \
             -o ndll/Linux/libnakama_bridge.so \
             bridge/nakama_bridge.cpp \
@@ -89,12 +91,44 @@ jobs:
       - name: Build bridge library (macOS)
         if: matrix.target == 'Mac'
         run: |
+          # 检查 framework 是否存在
+          if [ ! -d "ndll/Mac/nakama-sdk.framework" ]; then
+            echo "❌ ERROR: nakama-sdk.framework not found at ndll/Mac/"
+            echo "Current ndll/Mac contents:"
+            ls -la ndll/Mac/ 2>/dev/null || echo "Directory is empty"
+            exit 1
+          fi
+          
+          # 检查 framework 二进制文件
+          if [ ! -f "ndll/Mac/nakama-sdk.framework/nakama-sdk" ]; then
+            echo "❌ ERROR: Framework binary not found"
+            echo "Framework contents:"
+            ls -la ndll/Mac/nakama-sdk.framework/
+            exit 1
+          fi
+          
+          # 检查 framework 架构
+          echo "📋 Checking framework architecture:"
+          file ndll/Mac/nakama-sdk.framework/nakama-sdk
+          lipo -info ndll/Mac/nakama-sdk.framework/nakama-sdk 2>/dev/null || echo "Not a fat binary (may be single architecture)"
+          
+          # 编译桥接库
+          echo "🔨 Building bridge library..."
           clang++ -shared -fPIC -std=c++17 -DNAKAMA_SHARED_LIBRARY_EXPORTS \
             -o ndll/Mac/libnakama_bridge.dylib \
             bridge/nakama_bridge.cpp \
             -Iinclude \
-            -Fndll/Mac \
+            -F"$(pwd)/ndll/Mac" \
             -framework nakama-sdk
+          
+          # 验证编译结果
+          if [ -f "ndll/Mac/libnakama_bridge.dylib" ]; then
+            echo "✅ macOS bridge library built successfully"
+            ls -la ndll/Mac/libnakama_bridge.dylib
+          else
+            echo "❌ Failed to build macOS bridge library"
+            exit 1
+          fi
 
       - name: Build bridge library (iOS)
         if: matrix.target == 'iOS'
@@ -133,7 +167,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bridge-${{ matrix.target }}-${{ matrix.arch }}
-          path: ndll/${{ matrix.target }}/   # 上传整个平台目录
+          path: ndll/${{ matrix.target }}/
 
   package:
     needs: build-bridge
@@ -149,33 +183,50 @@ jobs:
 
       - name: Copy bridge libraries into ndll
         run: |
+          # 创建 ndll 目录
+          mkdir -p ndll
+          
           # Windows
           if [ -d "artifacts/bridge-Windows-x64/ndll/Windows" ]; then
             mkdir -p ndll/Windows
             cp -r artifacts/bridge-Windows-x64/ndll/Windows/* ndll/Windows/
+            echo "✅ Windows libraries copied"
           fi
+          
           # Linux
           if [ -d "artifacts/bridge-Linux-x64/ndll/Linux" ]; then
             mkdir -p ndll/Linux
             cp -r artifacts/bridge-Linux-x64/ndll/Linux/* ndll/Linux/
+            echo "✅ Linux libraries copied"
           fi
+          
           # macOS
           if [ -d "artifacts/bridge-Mac-universal/ndll/Mac" ]; then
             mkdir -p ndll/Mac
             cp -r artifacts/bridge-Mac-universal/ndll/Mac/* ndll/Mac/
+            echo "✅ macOS libraries copied"
           fi
+          
           # iOS
           if [ -d "artifacts/bridge-iOS-arm64/ndll/iOS" ]; then
             mkdir -p ndll/iOS
             cp -r artifacts/bridge-iOS-arm64/ndll/iOS/* ndll/iOS/
+            echo "✅ iOS libraries copied"
           fi
+          
           # Android (合并各个 ABI)
           for abi in armeabi-v7a arm64-v8a x86 x86_64; do
             if [ -d "artifacts/bridge-Android-$abi/ndll/Android/$abi" ]; then
               mkdir -p ndll/Android/$abi
               cp -r artifacts/bridge-Android-$abi/ndll/Android/$abi/* ndll/Android/$abi/
+              echo "✅ Android $abi libraries copied"
             fi
           done
+          
+          # 显示最终的 ndll 结构
+          echo ""
+          echo "=== Final ndll structure ==="
+          find ndll -type f | head -30
 
       - name: Setup Haxe
         uses: krdlab/setup-haxe@v1
@@ -185,21 +236,74 @@ jobs:
       - name: Generate haxelib.json
         run: |
           VERSION=${GITHUB_REF_NAME#v}
-          sed "s/__VERSION__/$VERSION/g" haxelib.json.template > haxelib.json
+          if [ -f "haxelib.json.template" ]; then
+            sed "s/__VERSION__/$VERSION/g" haxelib.json.template > haxelib.json
+          else
+            cat > haxelib.json << EOF
+          {
+              "name": "nakama-sdk",
+              "version": "$VERSION",
+              "releasenote": "Haxe bindings for Nakama C++ SDK",
+              "description": "Nakama game server client for Haxe",
+              "url": "https://github.com/yourname/nakama-haxe",
+              "license": "Apache-2.0",
+              "tags": ["nakama", "game", "backend"],
+              "classPath": "src",
+              "contributors": ["yourname"],
+              "dependencies": {
+                  "hxcpp": ""
+              }
+          }
+          EOF
+          fi
+          echo "Generated haxelib.json:"
+          cat haxelib.json
 
       - name: Generate include.xml
         run: |
-          if [ -f include.xml.template ]; then
+          if [ -f "include.xml.template" ]; then
+            VERSION=${GITHUB_REF_NAME#v}
             sed "s/__VERSION__/$VERSION/g" include.xml.template > include.xml
+          else
+            cat > include.xml << 'EOF'
+          <include>
+              <target id="windows">
+                  <lib name="nakama_bridge" dynamic="true" />
+              </target>
+              <target id="linux">
+                  <lib name="nakama_bridge" dynamic="true" />
+              </target>
+              <target id="mac">
+                  <lib name="nakama_bridge" dynamic="true" />
+              </target>
+              <target id="ios">
+                  <lib name="nakama_bridge.framework" framework="true" />
+              </target>
+              <target id="android">
+                  <lib name="nakama_bridge" />
+              </target>
+          </include>
+          EOF
           fi
+          echo "Generated include.xml:"
+          cat include.xml
 
       - name: Pack haxelib
         run: |
+          VERSION=${GITHUB_REF_NAME#v}
           haxelib pack .
+          echo "Created nakama-sdk-${VERSION}.zip"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: haxelib-package
+          path: nakama-sdk-*.zip
 
       - name: Publish to Haxelib
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}
         run: |
+          VERSION=${GITHUB_REF_NAME#v}
           haxelib submit nakama-sdk-${VERSION}.zip --password $HAXELIB_PASSWORD
