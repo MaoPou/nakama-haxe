@@ -1,4 +1,4 @@
-#include "nakama_bridge.h"
+#include "../include/nakama_bridge.h"
 #include <nakama-cpp/ClientFactory.h>
 #include <nakama-cpp/NClientInterface.h>
 #include <nakama-cpp/NSessionInterface.h>
@@ -25,25 +25,33 @@ static inline std::string to_string(const char* s) {
 }
 
 // 创建客户端
-NakamaClient nakama_client_create(const char* serverKey, const char* host, int port, int ssl) {
-    NClientParameters params;
-    params.serverKey = to_string(serverKey);
-    params.host = to_string(host);
-    params.port = (port <= 0) ? DEFAULT_PORT : port;
-    params.ssl = (ssl != 0);
-    NClientPtr client = createRestClient(params);
-    if (!client) return nullptr;
-    ClientHolder* holder = new ClientHolder{client};
-    return holder;
+extern "C" NakamaClient nakama_client_create(const char* serverKey, const char* host, int port, int ssl) {
+    try {
+        NClientParameters params;
+        params.serverKey = to_string(serverKey);
+        params.host = to_string(host);
+        params.port = (port <= 0) ? DEFAULT_PORT : port;
+        params.ssl = (ssl != 0);
+        
+        NClientPtr client = createRestClient(params);
+        if (!client) return nullptr;
+        
+        ClientHolder* holder = new ClientHolder{client};
+        return holder;
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 // 销毁客户端
-void nakama_client_destroy(NakamaClient client) {
-    if (client) delete static_cast<ClientHolder*>(client);
+extern "C" void nakama_client_destroy(NakamaClient client) {
+    if (client) {
+        delete static_cast<ClientHolder*>(client);
+    }
 }
 
 // 驱动网络请求
-void nakama_client_tick(NakamaClient client) {
+extern "C" void nakama_client_tick(NakamaClient client) {
     ClientHolder* holder = static_cast<ClientHolder*>(client);
     if (holder && holder->client) {
         holder->client->tick();
@@ -51,7 +59,7 @@ void nakama_client_tick(NakamaClient client) {
 }
 
 // 异步认证
-void nakama_authenticate_device(
+extern "C" void nakama_authenticate_device(
     NakamaClient client,
     const char* deviceId,
     const char* username,
@@ -72,7 +80,7 @@ void nakama_authenticate_device(
         create != 0,
         {},
         [ctx](NSessionPtr session) {
-            if (ctx->onSuccess) {
+            if (ctx->onSuccess && session) {
                 std::string token = session->getAuthToken();
                 std::string refresh = session->getRefreshToken();
                 ctx->onSuccess(token.c_str(), refresh.c_str(), ctx->userData);
