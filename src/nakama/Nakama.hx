@@ -1,49 +1,50 @@
+// src/nakama/Nakama.hx
 package nakama;
 
-@:cppFileCode('
-#include "nakama-cpp/Nakama.h"
-#include "nakama-cpp/ClientFactory.h"
+#if cpp
+import cpp.ConstCharStar;
 
-using namespace Nakama;
-')
+@:include('nakama-cpp/NakamaVersion.h')
+@:include('nakama-cpp/NUtils.h')
+@:buildXml("
+    <include name='${haxelib:nakama-haxe}/Build.xml' />
+")
 
-@:native("Nakama::NClientParameters")
-extern class NClientParameters {
-    public function new();
-    public var host:String;
-    public var port:Int;
-    public var serverKey:String;
-    public var scheme:String;
+@:keep
+@:unreflective
+extern class NativeNakama {
+    @:native('::Nakama::getNakamaSdkVersion')
+    static function getSdkVersion(): ConstCharStar;
+    
+    @:native('::Nakama::getUnixTimestampMs')
+    static function getUnixTimestampMs(): cpp.UInt64;
 }
 
-@:native("Nakama::NClientInterface")
-extern class NClient {
-    public function tick():Void;
+class Nakama {
+    public static function getVersion():String {
+        try {
+            var versionPtr = NativeNakama.getSdkVersion();
+            if (versionPtr != null) {
+                return cast versionPtr;
+            }
+            return "unknown";
+        } catch (e:Dynamic) {
+            return "error: " + e;
+        }
+    }
+    
+    public static function getUnixTimestamp():Int {
+        return NativeNakama.getUnixTimestampMs();
+    }
 }
-
-@:native("Nakama::createDefaultClient")
-extern function createDefaultClient(params:NClientParameters):NClient;
-
-class NakamaClient {
-    public var native:NClient;
-
-    public function new(host:String, port:Int, serverKey:String, scheme:String = "http") {
-        var p = new NClientParameters();
-        p.host = host;
-        p.port = port;
-        p.serverKey = serverKey;
-        p.scheme = scheme;
-
-        native = createDefaultClient(p);
+#else
+class Nakama {
+    public static function getVersion():String {
+        return "Nakama SDK not available (non-CPP target)";
     }
-
-    public function tick():Void {
-        native.tick();
+    
+    public static function getUnixTimestamp():Int {
+        return 0;
     }
-
-    #if lime
-    public function autoTick():Void {
-        lime.app.Application.current.addUpdateFunc(_ -> tick());
-    }
-    #end
 }
+#end

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xml>
+    <target id="haxe">
+		<section if="windows">
+			<lib name="${haxelib:nakama-haxe}/lib/windows/nakama-sdk.lib"/>
+		</section>
+    </target>
+
+    <files id="haxe">
+        <compilerflag value="-I${haxelib:nakama-haxe}/include" />
+        
+        <!-- Windows 平台 -->
+        <target id="windows">
+
+            <compilerflag value="-L${haxelib:nakama-haxe}/lib/windows" />
+
+            
+            
+            <lib name="ws2_32" />
+            <lib name="crypt32" />
+            <lib name="advapi32" />
+            <lib name="user32" />
+        </target>
+        
+        <!-- Linux 平台 -->
+        <target id="linux">
+            <compilerflag value="-L${haxelib:nakama-haxe}/lib/linux" />
+            <lib name="nakama-sdk" />
+        </target>
+        
+        <!-- macOS 平台 -->
+        <target id="mac">
+            <compilerflag value="-F${haxelib:nakama-haxe}/lib/mac" />
+            <lib name="nakama-sdk" />
+        </target>
+        
+        <!-- Android 平台 -->
+        <target id="android">
+            <if name="HXCPP_ARM64">
+                <compilerflag value="-L${haxelib:nakama-haxe}/lib/android/arm64-v8a" />
+            </if>
+            <if name="HXCPP_ARMV7">
+                <compilerflag value="-L${haxelib:nakama-haxe}/lib/android/armeabi-v7a" />
+            </if>
+            <if name="HXCPP_X86">
+                <compilerflag value="-L${haxelib:nakama-haxe}/lib/android/x86" />
+            </if>
+            <if name="HXCPP_X86_64">
+                <compilerflag value="-L${haxelib:nakama-haxe}/lib/android/x86_64" />
+            </if>
+            <lib name="nakama-sdk" />
+        </target>
+    </files>
+</xml>
