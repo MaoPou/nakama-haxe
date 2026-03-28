@@ -1,25 +1,49 @@
 package nakama;
 
-import cpp.Lib;
+@:cppFileCode('
+#include "nakama-cpp/Nakama.h"
+#include "nakama-cpp/ClientFactory.h"
 
-@:include('nakama_wrapper.h')
-@:buildXml('
-    <include name="${haxelib:nakama-sdk}/include/nakama_wrapper.h" />
+using namespace Nakama;
 ')
-extern class Nakama {
-    static function client_create(serverKey:String, host:String, port:Int, ssl:Bool):Dynamic;
-    static function client_destroy(client:Dynamic):Void;
-    static function client_tick(client:Dynamic):Void;
-    static function authenticate_device(
-        client:Dynamic,
-        deviceId:String,
-        username:String,
-        create:Bool,
-        onSuccess:SessionCallback,
-        onError:ErrorCallback,
-        userData:Dynamic
-    ):Void;
+
+@:native("Nakama::NClientParameters")
+extern class NClientParameters {
+    public function new();
+    public var host:String;
+    public var port:Int;
+    public var serverKey:String;
+    public var scheme:String;
 }
 
-typedef SessionCallback = (token:String, refreshToken:String, userData:Dynamic) -> Void;
-typedef ErrorCallback = (message:String, code:Int, userData:Dynamic) -> Void;
+@:native("Nakama::NClientInterface")
+extern class NClient {
+    public function tick():Void;
+}
+
+@:native("Nakama::createDefaultClient")
+extern function createDefaultClient(params:NClientParameters):NClient;
+
+class NakamaClient {
+    public var native:NClient;
+
+    public function new(host:String, port:Int, serverKey:String, scheme:String = "http") {
+        var p = new NClientParameters();
+        p.host = host;
+        p.port = port;
+        p.serverKey = serverKey;
+        p.scheme = scheme;
+
+        native = createDefaultClient(p);
+    }
+
+    public function tick():Void {
+        native.tick();
+    }
+
+    #if lime
+    public function autoTick():Void {
+        lime.app.Application.current.addUpdateFunc(_ -> tick());
+    }
+    #end
+}
