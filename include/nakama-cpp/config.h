@@ -1,12 +1,6 @@
 #pragma once
 
-#ifdef _WIN32
-    #define FORCE_DLL_IMPORT_EXPORT
-#endif
-
-#ifdef __linux__
-    #define FORCE_DLL_VISIBILITY
-#endif
-
-#define HAVE_DEFAULT_TRANSPORT_FACTORY
-#define HAVE_DEFAULT_RT_TRANSPORT_FACTORY
+#define optional_CONFIG_SELECT_OPTIONAL optional_OPTIONAL_NONSTD
+#define BUILD_HTTP_CURL
+#define BUILD_WEBSOCKET_WSLAY
+#define BUILD_CURL_IO

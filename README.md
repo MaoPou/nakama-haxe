@@ -4,6 +4,9 @@ Haxe extern bindings for [Nakama C++ SDK](https://github.com/heroiclabs/nakama-c
 
 ## Installation
 
-1. Install via haxelib:
+1. 下载haxelib:
    ```bash
-   haxelib install nakama-haxe
+   haxelib git nakama-haxe https://github.com/MaoPou/nakama-haxe
+   ```
+
+2. 配置

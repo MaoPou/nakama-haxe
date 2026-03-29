@@ -17,15 +17,13 @@
 #pragma once
 
 #include "NRtError.h"
-#include <stdexcept>
 
 namespace Nakama
 {
-    class NAKAMA_API NRtException : public std::runtime_error {
+    class NRtException : public std::runtime_error {
     public:
         NRtException(const NRtError& error)
             : std::runtime_error(error.message), error(error) {}
-        ~NRtException() override;
 
         const NRtError error;
     };
